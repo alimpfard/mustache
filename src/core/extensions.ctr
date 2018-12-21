@@ -1,0 +1,49 @@
+Object
+  on: 'mustacheDefaultWhenLookupFails' do: { ^Nil. },
+  on: 'mustacheDo:' do: {:blk ^mustacheDo: blk inverted: False. },
+  on: 'mustacheDo:inverted:' do: {:blk:inv
+    inv ifFalse: { ^blk applyTo: me. }.
+  },
+  on: 'mustacheLookup:' do: {:str
+    str = '.' ifTrue: { ^me. }.
+    Reflect object: me hasOwnResponder: str,
+      ifTrue: { ^me message: str arguments: []. }
+      ifFalse: { ^me mustacheLookupComplex: str. }.
+  },
+  on: 'mustacheLookupComplex:' do: {:str
+    var stream is Stream of: str.
+    var firstPart is stream upTo: '.'.
+    stream atEnd
+      ifTrue: {^me mustacheDefaultWhenLookupFails.}
+      ifFalse: {^(me mustacheLookup: firstPart) mustacheLookup: stream upToEnd. }.
+  }.
+
+Map
+  on: 'mustacheLookup:' do: {:self:key ^me at: key, or: { ^self mustacheLookupComplex: key. }. }.
+
+Boolean
+  on: 'mustacheDo:inverted:' do: {:blk:inv
+    me ! inv ifFalse: {
+      ^blk applyTo: Nil.
+    }.
+  },
+  on: 'and:' do: {:blk
+    ^me ifTrue: { ^blk run toBoolean. } ifFalse: { ^False. }.
+  }.
+
+Array
+  on: 'mustacheDo:inverted:' do: {:self:blk:inv
+    inv
+      ifTrue:  { ^self count > 0 mustacheDo: blk inverted: inv. }
+      ifFalse: { ^self mustacheDo: blk. }.
+  },
+  on: 'mustacheDo:' do: {:blk
+    me each_v: blk.
+  }.
+
+String
+  on: 'mustacheDo:' do: {:blk
+    blk applyTo: me.
+  },
+  on: 'asMustacheTemplate' do: { ^MustacheTemplate new init compile: me. },
+  on: 'isSeparator' do: { ^me containsPattern: '\\s'. }.

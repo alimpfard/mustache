@@ -1,0 +1,140 @@
+var MustacheParser is Object cnew: {
+  on: 'init' do: {
+    stream => Nil.
+    startDelimiter => Nil.
+    endDelimiter => Nil.
+    stack => Array new.
+    delimiterExtensions => Nil.
+  }.
+  on: 'addPart:' do: {:part
+    my stack last addPart: part.
+  }.
+  on: 'buildDelimiterExtensions' do: {:self
+    ^Map new
+      put: {\ self startSection: MustacheSection new init. }         at: '#',
+      put: {\ self endSection. }                                     at: '/',
+      put: {\ self readDefaultUnescapedToken. }                      at: '{',
+      put: {\ self readUnescapedToken. }                             at: '&',
+      put: {\ self readComment. }                                    at: '!',
+      put: {\ self startSection: MustacheInvertedSection new init. } at: '^',
+      put: {\ self readChangeDelimiter. }                            at: '=',
+      put: {\ self readPartial. }                                    at: '>'.
+  }.
+  on: 'compile' do: {:self
+    var sequenceStart is {\
+      self readStringChunk.
+      {\
+        self readTag.
+        sequenceStart.
+      }.
+    }.
+    self readUpToEndUsing: sequenceStart.
+  }.
+  on: 'compileTemplate:' do: {:template
+    push: template, compile.
+  }.
+  on: 'consumeWhiteSpace' do: {
+    var stream is my stream.
+    {
+      ^stream atEnd not and: {^stream peek isSeparator.}.
+    } whileTrue: {
+      stream next.
+    }.
+  }.
+  on: 'defaultEndDelimiter' do: {\ '}}'}.
+  on: 'defaultStartDelimiter' do: {\ '{{'}.
+  on: 'delimiterExtensions' do: {
+    my delimiterExtensions isNil ifTrue: {
+      delimiterExtensions => me buildDelimiterExtensions.
+    }.
+    ^my delimiterExtensions.
+  }.
+  on: 'endDelimiter' do: {
+    my endDelimiter isNil ifTrue: {
+      endDelimiter => me defaultEndDelimiter.
+    }.
+    ^my endDelimiter.
+  }.
+  on: 'startDelimiter' do: {
+    my startDelimiter isNil ifTrue: {
+      startDelimiter => me defaultStartDelimiter.
+    }.
+    ^my startDelimiter.
+  }.
+  on: 'endDelimiter:' do: {:str endDelimiter => str.}.
+  on: 'startDelimiter:' do: {:str startDelimiter => str.}.
+
+  on: 'endSection' do: {:self
+    var token is self readToken.
+    my stack last selector = token ifFalse: {
+      thisBlock error: 'End section does not match ' + stack last selector toString.
+    }.
+    my stack pop.
+  }.
+  on: 'isDelimiterExtension:' do: {:char
+    ^me delimiterExtensions contains: char.
+  }.
+  on: 'push:' do: {:template
+    my stack push: template.
+  }.
+  on: 'readChangeDelimiter' do: {
+    startDelimiter: (
+      my stream takeWhile: \:x x isSeparator not
+    ).
+    me consumeWhiteSpace.
+    endDelimiter: (
+      my stream takeUntilMatches: me endDelimiter 
+    ).
+  }.
+  on: 'readComment' do: { me readToken. }.
+  on: 'readDefaultTag' do: { me readHtmlEscapedToken. }.
+  on: 'readDefaultUnescapedToken' do: {
+    me readUnescapedToken.
+    my stream next = '}' ifFalse: {
+      thisBlock error: 'Character \'}\' expected'.
+    }.
+  }.
+  on: 'readExtendedTag' do: {
+    ^me delimiterExtensions at: my stream next, run.
+  }.
+  on: 'readHtmlEscapedToken' do: {
+    addPart: (MustacheHtmlEscapedToken new init token: me readToken).
+  }.
+  on: 'readPartial' do: {
+    addPart: (MustachePartial name: me readToken).
+  }.
+  on: 'readStringChunk' do: {
+    (var chunk is my stream takeUntilMatches: me startDelimiter) isNil ifFalse: {
+      addPart: (MustacheStringChunk new init string: chunk).
+    }.
+  }.
+  on: 'readTag' do: {
+    isDelimiterExtension: my stream peek,
+      ifTrue: { me readExtendedTag. }
+      ifFalse: { me readDefaultTag. }.
+  }.
+  on: 'readToken' do: {
+    ^ my stream takeUntilMatches: me endDelimiter, trim.
+  }.
+  on: 'readUnescapedToken' do: {
+    addPart: (MustacheToken new init token: me readToken).
+  }.
+  on: 'readUpToEndUsing:' do: {:blk
+    var nextRead is blk.
+    var stream is my stream.
+    { ^stream atEnd. } whileFalse: {
+      nextRead is nextRead run.
+    }.
+  }.
+  on: 'startDelimiter' do: {
+    my startDelimiter isNil ifTrue: { startDelimiter => me defaultStartDelimiter. }.
+    ^my startDelimiter.
+  }.
+  on: 'startSection:' do: {:section
+    section is section selector: me readToken.
+    addPart: section.
+    my stack push: section.
+  }.
+  on: 'stream:' do: {:stream stream => stream. }.
+  on: 'on:' do: {:str ^cnew: { me init stream: (Stream of: str). }.}.
+}.

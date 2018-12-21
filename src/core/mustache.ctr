@@ -1,0 +1,189 @@
+var MustachePart is Object cnew: {
+  on: 'type' do: { ^'MustachePart'. }.
+  on: 'lookup:inContext:' do: {:token:obj ^obj mustacheLookup: token. }.
+}.
+
+var MustacheCompositePart is MustachePart cnew: {
+  on: 'type' do: { ^'MustacheCompositePart'. }.
+  on: 'init' do: {
+    parts => Array new.
+  }.
+  on: 'addPart:' do: {:part
+    my parts push: part.
+  }.
+  on: 'parts' do: {\ my parts }.
+}.
+
+var MustacheSection is MustacheCompositePart cnew: {
+  on: 'type' do: { ^'MustacheSection'. }.
+  on: 'init' do: {
+    me `init.
+    selector => Nil.
+  }.
+  on: 'selector' do: { ^my selector. }.
+  on: 'selector:' do: {:sel my selector is sel. }.
+  on: 'accept:' do: {:visitor
+    visitor visitSection: me.
+  }.
+  on: 'isInverted' do: { ^False. }.
+  on: 'lookupInContext:' do: {:obj
+    ^lookup: my selector inContext: obj.
+  }.
+  on: 'mustacheDo:inContext:' do: {:blk:ctx
+    ctx mustacheDo: blk inverted: me isInverted.
+  }.
+  learn: 'valueInContext:' means: 'lookupInContext:'.
+}.
+
+var MustacheInvertedSection is MustacheSection cnew: {
+  on: 'isInverted' do: {^True.}.
+  on: 'type' do: { ^'MustacheInvertedSection'. }.
+}.
+
+var MustacheTemplate is MustacheCompositePart cnew: {
+  on: 'type' do: { ^'MustacheTemplate'. }.
+  on: 'accept:' do: {:visitor visitor visitTemplate: me. }.
+  on: 'compile:' do: {:stream
+    me parser on: stream, compileTemplate: me.
+  }.
+  on: 'parser' do: {
+    ^MustacheParser.
+  }.
+  on: 'value:' do: {:obj
+    var visitor is MustacheWriteVisitor new init context: obj.
+    accept: visitor.
+    ^visitor string.
+  }.
+  on: 'value:partials:' do: {:obj:map
+    var visitor is MustacheWriteVisitor new init
+      context: obj,
+      partials: map.
+    accept: visitor.
+    ^visitor string.
+  }.
+}.
+
+var MustachePartial is MustachePart cnew: {
+  on: 'type' do: { ^'MustachePartial'. }.
+  on: 'init' do: {
+    name => Nil.
+  }.
+  on: 'name' do: { ^my name. }.
+  on: 'name:' do: {:name my name is name. }.
+  on: 'accept:' do: {:visitor visitor visitPartial: me. }.
+}.
+
+var MustacheStringChunk is MustachePart cnew: {
+  on: 'type' do: { ^'MustacheStringChunk'. }.
+  on: 'init' do: {
+    string => Nil.
+  }.
+  on: 'string' do: { ^my string. }.
+  on: 'string:' do: {:str my string is str. }.
+  on: 'accept:' do: {:visitor visitor visitStringChunk: me. }.
+}.
+
+var MustacheToken is MustachePart cnew: {
+  on: 'type' do: { ^'MustacheToken'. }.
+  on: 'init' do: {
+    token => Nil.
+  }.
+  on: 'token:' do: {:tok token => tok.}.
+  on: 'accept:' do: {:visitor visitor visitToken: me. }.
+  on: 'lookupInContext:' do: {:obj
+    ^lookup: my token inContext: obj.
+  }.
+  on: 'valueInContext:' do: {:obj
+    (obj is lookupInContext: obj) isNil
+      ifTrue: { ^''. }
+      ifFalse: { ^obj toString. }.
+  }.
+}.
+
+var MustacheHtmlEscapedToken is MustacheToken cnew: {
+  on: 'type' do: { ^'MustacheHtmlEscapedToken'. }.
+  on: 'accept:' do: {:visitor visitor visitHtmlEscapedToken: me. }.
+  on: 'valueInContext:' do: {:obj
+    ^`valueInContext: obj, htmlEscape.
+  }.
+}.
+
+var MustacheVisitor is Object cnew: {
+  on: 'type' do: { ^'MustacheVisitor'. }.
+  on: 'init' do: {
+    partials => Nil.
+  }.
+  on: 'partials:' do: {:p partials => p.}.
+  on: 'partialAt:' do: {:str
+    my partials isNil ifTrue: {
+      thisBlock error: 'Template has no partials'.
+    }.
+    var template is my partials at: str.
+    template isA: String, ifTrue: {
+      template is MustacheTemplate on: template.
+      my partials put: template at: str.
+    }.
+    ^template.
+  }.
+  on: 'visit:' do: {:part part accept: me. }.
+  on: 'visitAll:' do: {:self:coll
+    coll each_v: {:each self visit: each. }.
+  }.
+  on: 'visitCompositePart:' do: {:part
+    visitAll: part parts.
+  }.
+  on: 'visitHtmlEscapedToken:' do: {:token}.
+  on: 'visitPartial:' do: {:part
+    visit: (partialAt: part name).
+  }.
+  on: 'visitSection:' do: {:sect
+    visitCompositePart: sect.
+  }.
+  on: 'visitStringChunk:' do: {:chunk}.
+  on: 'visitTemplate:' do: {:template visitCompositePart: template.}.
+  on: 'visitToken:' do: {:token visitHtmlEscapedToken: token.}.
+}.
+
+var MustacheWriteVisitor is MustacheVisitor cnew: {
+  on: 'type' do: { ^'MustacheWriteVisitor'. }.
+  on: 'init' do: {
+    strings => Array new: 50.
+    context => Nil.
+  }.
+  on: 'context:' do: {:ctx context => ctx.}.
+  on: 'renderSection:withBlock:' do: {:self:sect:blk
+    var context is my context.
+    addString: (
+      blk applyTo: {\ self new context: context, visitCompositePart: sect, string. }
+    ).
+  }.
+  on: 'renderSection:withObject:' do: {:self:sect:obj
+    var context is my context.
+    sect mustacheDo: {\:item
+      item isNil ifFalse: { self context: item. }.
+      self visitCompositePart: sect.
+    } inContext: obj.
+  }.
+  on: 'string' do: {
+    my strings count > 0
+      ifTrue: {
+        ^my strings sum.
+      } ifFalse: { ^''. }.
+  }.
+  on: 'visitHtmlEscapedToken:' do: {:token
+    addString: (token valueInContext: my context).
+  }.
+  on: 'visitSection:' do: {:self:sect
+    var oldC is my context.
+    var value is sect valueInContext: my context.
+    var result is Nil.
+    value isA: CodeBlock,
+      ifTrue:  { result is self renderSection: sect withBlock: value.  self context: oldC.}
+      ifFalse: { result is self renderSection: sect withObject: value. self context: oldC.}.
+    ^result.
+  }.
+  on: 'visitStringChunk:' do: {:str addString: str string. }.
+  on: 'addString:' do: {:str
+    str length = 0 ifFalse: { my strings push: str. }.
+  }.
+}.
