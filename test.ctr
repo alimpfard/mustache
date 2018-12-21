@@ -4,4 +4,10 @@ var template is 'Hello {{what}}, this is a list
 {{# hi}}- {{.}}
 {{/ hi}}' asMustacheTemplate.
 
-Pen writeln: (template value: (Map new put: 'World' at: 'what', put: [1,2,3,'succ a dicc'] at: 'hi')).
+Pen writeln: (
+  template value: (
+    Map new
+      put: 'World' at: 'what',
+      put: [1,2,3,'succ a dicc'] at: 'hi'
+  )
+).
