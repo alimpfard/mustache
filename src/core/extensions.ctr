@@ -6,13 +6,14 @@ Object
   },
   on: 'mustacheLookup:' do: {:str
     str = '.' ifTrue: { ^me. }.
-    Reflect object: me hasOwnResponder: str,
+    me &responder: str, isNil not
       ifTrue: { ^me message: str arguments: []. }
       ifFalse: { ^me mustacheLookupComplex: str. }.
   },
   on: 'mustacheLookupComplex:' do: {:str
     var stream is Stream of: str.
-    var firstPart is stream upTo: '.'.
+    var firstPart is stream upTo: ' '.
+    stream peek = ' ' ifTrue: { stream next. }.
     stream atEnd
       ifTrue: {^me mustacheDefaultWhenLookupFails.}
       ifFalse: {^(me mustacheLookup: firstPart) mustacheLookup: stream upToEnd. }.

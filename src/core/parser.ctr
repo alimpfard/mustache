@@ -83,7 +83,7 @@ var MustacheParser is Object cnew: {
     ).
     me consumeWhiteSpace.
     endDelimiter: (
-      my stream takeUntilMatches: me endDelimiter 
+      my stream takeUntilMatches: me endDelimiter
     ).
   }.
   on: 'readComment' do: { me readToken. }.
@@ -101,7 +101,7 @@ var MustacheParser is Object cnew: {
     addPart: (MustacheHtmlEscapedToken new init token: me readToken).
   }.
   on: 'readPartial' do: {
-    addPart: (MustachePartial name: me readToken).
+    addPart: (MustachePartial new init name: me readToken).
   }.
   on: 'readStringChunk' do: {
     (var chunk is my stream takeUntilMatches: me startDelimiter) isNil ifFalse: {

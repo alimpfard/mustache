@@ -1,19 +1,29 @@
 import src: \*.
 
-var template is 'A list of {{numbers}}
+var template is '
+<h2> A list of {{numbers?}}</h2>
+{{# list }}{{> inner}} {{/ list }}
+<ul>
 {{# list }}
-{{> user}}
-{{/ list }}' asMustacheTemplate.
+{{> inner2}}
+{{/ list}} {{^ crap}}
+No way
+{{/ crap}}
+</ul>
+' asMustacheTemplate.
 
-var utstr is 'Number: {{.}}'.
+var utstr is '{{reverse characters tail sum reverse}}'.
+var xtstr is '<li>{{.}}</li>'.
 
 Pen writeln: (
   template value: (
     Map new
-      put: { ^'numbers'. } at: 'numbers',
-      put: [1,2,3,4,5,6] at: 'list'
+      put: { ^'<not really numbers>'. } at: 'numbers?', # will be htmlEscape'd
+      put: ['These', 'will', 'be', 'missing', 'their', 'last', 'character'] at: 'list',
+      put: False at: 'crap'
   ) partials: (
     Map new
-      put: utstr at: 'user'
+      put: utstr at: 'inner',
+      put: xtstr at: 'inner2'
   )
 ).
