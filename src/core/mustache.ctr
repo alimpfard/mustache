@@ -94,9 +94,15 @@ var MustacheToken is MustachePart cnew: {
     ^lookup: my token inContext: obj.
   }.
   on: 'valueInContext:' do: {:obj
+    var run-if-block is {:o
+      o isA: CodeBlock, ifTrue: {
+        ^o[].
+      }.
+      ^o.
+    }.
     (obj is lookupInContext: obj) isNil
       ifTrue: { ^''. }
-      ifFalse: { ^obj toString. }.
+      ifFalse: { ^run-if-block[obj] toString. }.
   }.
 }.
 
@@ -120,7 +126,7 @@ var MustacheVisitor is Object cnew: {
     }.
     var template is my partials at: str.
     template isA: String, ifTrue: {
-      template is MustacheTemplate on: template.
+      template is MustacheTemplate new init compile: template.
       my partials put: template at: str.
     }.
     ^template.

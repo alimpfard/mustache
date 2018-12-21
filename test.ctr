@@ -1,13 +1,19 @@
 import src: \*.
 
-var template is 'Hello {{what}}, this is a list
-{{# hi}}- {{.}}
-{{/ hi}}' asMustacheTemplate.
+var template is 'A list of {{numbers}}
+{{# list }}
+{{> user}}
+{{/ list }}' asMustacheTemplate.
+
+var utstr is 'Number: {{.}}'.
 
 Pen writeln: (
   template value: (
     Map new
-      put: 'World' at: 'what',
-      put: [1,2,3,'succ a dicc'] at: 'hi'
+      put: { ^'numbers'. } at: 'numbers',
+      put: [1,2,3,4,5,6] at: 'list'
+  ) partials: (
+    Map new
+      put: utstr at: 'user'
   )
 ).
