@@ -1,0 +1,61 @@
+import
+  Library/Data/Json
+  Library/Data/Map
+  Library/Data/SwitchCase
+  .
+import require-parent.
+
+#:language XFrozen
+
+var arguments is Array new fill: Program argCount with: \:i Program argument: i.
+arguments do shift shift done.
+
+var template is Nil.
+var values is Array new.
+
+{ ^arguments count > 0. } whileTrue: {
+  (frozen _ is Nil
+    case: '-t'
+    # case: '--template'
+    do: {
+      template isNil ifFalse: {
+        thisBlock error: 'only one template is allowed'.
+      }.
+      var fname is arguments shift.
+      template is File new: fname, read.
+    },
+    case: '-a'
+    # case: '--arg-template'
+    do: {
+      template isNil ifFalse: {
+        thisBlock error: 'only one template is allowed'.
+      }.
+      template is arguments shift.
+    },
+    case: '-v'
+    # case: '--values'
+    do: {
+      values push: (File new: arguments shift, read).
+    },
+    default: {
+      Pen writeln: 'What? (%s)' % [value].
+    }
+  ) switch: (var value is arguments shift).
+}.
+
+
+template isNil ifTrue: {
+  thisBlock error: 'Exactly one argument expected for -t (template)'.
+}.
+
+template is template asMustacheTemplate.
+
+values count = 0 ifTrue: {
+  Pen writeln: 'input a value json, then press ^D'.
+  Pen cyan write: '> ', resetColor.
+  values push: Program input.
+}.
+
+values each_v: {:value
+  Pen writeln: (template value: (Json parse: value)).
+}.
